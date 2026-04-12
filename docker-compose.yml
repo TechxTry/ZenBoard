@@ -1,0 +1,88 @@
+# 全栈编排：PostgreSQL + Redis + 本地构建 backend / frontend（clone 后默认可用）
+#
+# 使用前：
+#   1. 仓库根目录：cp .env.example .env，至少修改 JWT_SECRET、ADMIN_PASS
+#   2. docker compose up -d --build
+#
+# 首次构建需下载依赖，约数分钟。访问：http://localhost:${WEB_PORT:-80}
+# （若 80 端口需权限，可设 WEB_PORT=8080）
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: zenboard_pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-zenboard}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-zenboard123}
+      POSTGRES_DB: ${POSTGRES_DB:-zenboard}
+    ports:
+      - "${POSTGRES_PUBLISH:-5432}:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./backend/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zenboard} -d ${POSTGRES_DB:-zenboard}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: zenboard_redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PUBLISH:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: zenboard-backend:local
+    container_name: zenboard_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      PORT: "8080"
+      PG_DSN: >-
+        host=postgres user=${POSTGRES_USER:-zenboard} password=${POSTGRES_PASSWORD:-zenboard123}
+        dbname=${POSTGRES_DB:-zenboard} port=5432 sslmode=disable TimeZone=Asia/Shanghai
+      REDIS_ADDR: redis:6379
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASS: ${ADMIN_PASS:-change_me_in_production}
+      JWT_SECRET: ${JWT_SECRET:-change_me_in_production}
+      ZT_HOST: ${ZT_HOST:-}
+      ZT_PORT: ${ZT_PORT:-3306}
+      ZT_USER: ${ZT_USER:-}
+      ZT_PASS: ${ZT_PASS:-}
+      ZT_DBNAME: ${ZT_DBNAME:-zentao}
+      ETL_CONFIG_PATH: ${ETL_CONFIG_PATH:-config/etl_tables.yaml}
+    ports:
+      - "${BACKEND_PUBLISH:-8080}:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: zenboard-frontend:local
+    container_name: zenboard_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${WEB_PORT:-80}:80"
+
+volumes:
+  pg_data:
+  redis_data:

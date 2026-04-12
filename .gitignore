@@ -1,0 +1,44 @@
+# =========================================================================
+# 根目录全局忽略规则
+# =========================================================================
+
+# 敏感信息与环境变量
+.env
+.env.*
+!.env.example
+
+# macOS / 操作系统生成的文件
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# 编辑器与 IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.fleet/
+
+# 日志与临时文件
+*.log
+logs/
+tmp/
+temp/
+
+# 本地 Harbor 构建脚本（不上传仓库）
+harbor-manager.sh
+
+# 私有镜像仓库编排（仅本机使用，不上传仓库）
+docker-compose.harbor.yml
+
+# 内部规划/需求文档（不上传仓库）
+script/
+
+# 前端依赖与构建产物（由 npm / Docker 构建生成）
+node_modules/
+frontend/node_modules/
+frontend/dist/
+*.tsbuildinfo

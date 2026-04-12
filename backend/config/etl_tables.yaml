@@ -1,0 +1,52 @@
+# ETL 表映射配置
+# 每条记录描述一张 Zentao MySQL 源表 → 本地 PG 目标表 的同步参数
+# 修改此文件后重启服务即可生效，无需重新编译
+
+tables:
+  - name: local_users         # 对应 PG 目标表名(同时作为 watermark key)
+    source: zt_user           # 禅道 MySQL 源表名(可按实际版本调整)
+    enabled: true
+    watermark:
+      type: none              # none=全量覆盖(小表), time=按时间增量, id=按ID增量
+      field: ""               # type=time 时填写 MySQL 时间字段名
+    extra_filter: ""          # 附加 WHERE 条件(可选), e.g. "deleted='0'"
+
+  - name: local_tasks
+    source: zt_task
+    enabled: true
+    watermark:
+      type: time
+      field: lastEditedDate
+    extra_filter: ""
+
+  - name: local_stories
+    source: zt_story
+    enabled: true
+    watermark:
+      type: time
+      field: lastEditedDate
+    extra_filter: ""
+
+  - name: local_bugs
+    source: zt_bug
+    enabled: true
+    watermark:
+      type: time
+      field: lastEditedDate
+    extra_filter: ""
+
+  - name: local_efforts
+    source: zt_effort         # 部分禅道版本此表名为 zt_taskestimate，请按实际调整
+    enabled: true
+    watermark:
+      type: id
+      field: id
+    extra_filter: ""
+
+  - name: local_executions
+    source: zt_project        # 禅道中迭代与项目同存于 zt_project 表
+    enabled: true
+    watermark:
+      type: id
+      field: id
+    extra_filter: "type IN ('sprint','stage','kanban')"

@@ -1,0 +1,14 @@
+# 覆盖为从本仓库源码构建前后端（配合 docker-compose.yml 使用）
+# docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: zenboard-backend:local
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: zenboard-frontend:local

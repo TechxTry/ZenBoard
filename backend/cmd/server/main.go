@@ -79,6 +79,11 @@ func main() {
 		api.GET("/groups/:id/members", handlers.GetGroupMembers)
 		api.PUT("/groups/:id/members", handlers.UpdateGroupMembers)
 
+		// Analytics
+		api.GET("/analytics/effort-heatmap", handlers.EffortHeatmap)
+		api.GET("/analytics/user-load", handlers.UserLoad)
+		api.GET("/analytics/workload-distribution", handlers.WorkloadDistribution)
+
 		// Workbench (tasks/:id must be registered before /workbench/tasks)
 		api.GET("/workbench/tasks/:id", handlers.GetTask)
 		api.GET("/workbench/tasks", handlers.ListTasks)

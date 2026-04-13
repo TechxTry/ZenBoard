@@ -1,4 +1,3 @@
-import React from 'react'
 import { Layout, Menu, Select, Space, Typography, Avatar } from 'antd'
 import {
   SettingOutlined, TeamOutlined, BarChartOutlined, LogoutOutlined,
@@ -6,7 +5,7 @@ import {
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
 import { useAppStore } from './store'
 import { listGroups } from './api'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 const { Header, Sider, Content } = Layout
 const { Text } = Typography
@@ -16,8 +15,28 @@ interface Group { id: number; name: string }
 const AppLayout: React.FC = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { selectedGroupId, setGroup } = useAppStore()
+  const { selectedGroupId, setGroup, themeMode, setThemeMode } = useAppStore()
   const [groups, setGroups] = useState<Group[]>([])
+  const [systemTheme, setSystemTheme] = useState<'light' | 'dark'>(() =>
+    window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
+  )
+
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const onChange = () => setSystemTheme(mq.matches ? 'dark' : 'light')
+    onChange()
+
+    mq.addEventListener('change', onChange)
+
+    return () => {
+      mq.removeEventListener('change', onChange)
+    }
+  }, [])
+
+  const resolvedTheme = useMemo<'light' | 'dark'>(
+    () => (themeMode === 'system' ? systemTheme : themeMode),
+    [systemTheme, themeMode],
+  )
 
   useEffect(() => {
     listGroups().then((d: { data: Group[] }) => {
@@ -30,6 +49,8 @@ const AppLayout: React.FC = () => {
 
   const selectedKey = location.pathname.startsWith('/groups')
     ? '/groups'
+    : location.pathname.startsWith('/analytics')
+    ? '/analytics/team-health'
     : location.pathname.startsWith('/workbench')
     ? '/workbench'
     : '/config'
@@ -44,38 +65,38 @@ const AppLayout: React.FC = () => {
       style={{
         height: '100vh',
         overflow: 'hidden',
-        background: '#0d0d1a',
+        background: 'var(--app-bg)',
       }}
     >
       <Sider
-        theme="dark"
+        theme={resolvedTheme}
         width={220}
         style={{
           height: '100vh',
           overflowY: 'auto',
           position: 'relative',
-          background: 'linear-gradient(180deg, #1a1a2e 0%, #16213e 100%)',
-          borderRight: '1px solid rgba(255,255,255,0.06)',
+          background: 'var(--app-sider-bg)',
+          borderRight: '1px solid var(--app-sider-border)',
         }}
       >
         <div style={{
           padding: '24px 20px 16px',
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          borderBottom: '1px solid var(--app-sider-border)',
           marginBottom: 8,
         }}>
           <Space>
             <div style={{
               width: 32, height: 32, borderRadius: 8,
-              background: 'linear-gradient(135deg, #667eea, #764ba2)',
+              background: 'var(--app-brand-gradient)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 16,
             }}>🧘</div>
-            <Text strong style={{ color: '#fff', fontSize: 15 }}>ZenBoard</Text>
+            <Text strong style={{ fontSize: 15 }}>ZenBoard</Text>
           </Space>
         </div>
 
         <Menu
-          theme="dark"
+          theme={resolvedTheme}
           mode="inline"
           selectedKeys={[selectedKey]}
           style={{ background: 'transparent', border: 'none', padding: '0 8px' }}
@@ -84,6 +105,7 @@ const AppLayout: React.FC = () => {
             { key: '/config', icon: <SettingOutlined />, label: '系统配置' },
             { key: '/groups', icon: <TeamOutlined />, label: '项目组管理' },
             { key: '/workbench', icon: <BarChartOutlined />, label: '数据工作台' },
+            { key: '/analytics/team-health', icon: <BarChartOutlined />, label: '负荷与健康度' },
           ]}
         />
 
@@ -92,10 +114,10 @@ const AppLayout: React.FC = () => {
             onClick={logout}
             style={{
               display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px',
-              borderRadius: 8, cursor: 'pointer', color: 'rgba(255,255,255,0.4)',
+              borderRadius: 8, cursor: 'pointer', color: resolvedTheme === 'dark' ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.45)',
               transition: 'all .2s',
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
+            onMouseEnter={(e) => (e.currentTarget.style.background = resolvedTheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)')}
             onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
           >
             <LogoutOutlined /> 退出登录
@@ -116,17 +138,27 @@ const AppLayout: React.FC = () => {
         <Header
           style={{
             flexShrink: 0,
-            background: 'rgba(13,13,26,0.8)',
+            background: 'var(--app-header-bg)',
             backdropFilter: 'blur(12px)',
-            borderBottom: '1px solid rgba(255,255,255,0.06)',
+            borderBottom: '1px solid var(--app-border)',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             padding: '0 24px', height: 56,
           }}
         >
-          <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>
+          <Text style={{ color: resolvedTheme === 'dark' ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.45)', fontSize: 13 }}>
             当前视角：项目组
           </Text>
           <Space>
+            <Select
+              value={themeMode}
+              onChange={(val) => setThemeMode(val)}
+              style={{ width: 140 }}
+              options={[
+                { value: 'system', label: '跟随系统' },
+                { value: 'light', label: '浅色' },
+                { value: 'dark', label: '深色' },
+              ]}
+            />
             <Select
               placeholder="选择项目组"
               value={selectedGroupId ?? undefined}
@@ -136,7 +168,7 @@ const AppLayout: React.FC = () => {
               variant="filled"
             />
             <Avatar
-              style={{ background: 'linear-gradient(135deg, #667eea, #764ba2)', cursor: 'default' }}
+              style={{ background: 'var(--app-brand-gradient)', cursor: 'default' }}
               size={32}
             >A</Avatar>
           </Space>

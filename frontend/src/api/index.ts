@@ -53,6 +53,34 @@ export const listBugs = (params: WorkbenchParams) => http.get('/workbench/bugs',
 export const listEfforts = (params: WorkbenchParams) => http.get('/workbench/efforts', { params }).then((r) => r.data)
 export const listExecutions = (params: WorkbenchParams) => http.get('/workbench/executions', { params }).then((r) => r.data)
 
+// ---- Analytics ----
+export type EffortHeatmapParams = {
+  group_id: number
+  start: string
+  end: string
+  exclude_weekend?: boolean
+  target_hours?: number
+  overload_hours?: number
+  overload_streak?: number
+}
+export const getEffortHeatmap = (params: EffortHeatmapParams) =>
+  http.get('/analytics/effort-heatmap', { params }).then((r) => r.data)
+
+export type UserLoadParams = {
+  group_id: number
+  execution_id?: number
+}
+export const getUserLoad = (params: UserLoadParams) => http.get('/analytics/user-load', { params }).then((r) => r.data)
+
+export type WorkloadDistributionParams = {
+  group_id: number
+  start: string
+  end: string
+  account?: string
+}
+export const getWorkloadDistribution = (params: WorkloadDistributionParams) =>
+  http.get('/analytics/workload-distribution', { params }).then((r) => r.data)
+
 // ---- Sync ----
 export const triggerSync = () => http.post('/sync/trigger').then((r) => r.data)
 export const getSyncStatus = () => http.get('/sync/status').then((r) => r.data)

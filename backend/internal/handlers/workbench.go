@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 	"zenboard/internal/db"
 	"zenboard/internal/models"
@@ -196,6 +197,8 @@ func ListBugs(c *gin.Context) {
 func ListEfforts(c *gin.Context) {
 	groupID := queryInt(c, "group_id")
 	account := c.Query("account")
+	objectType := strings.TrimSpace(c.Query("object_type"))
+	objectIDStr := strings.TrimSpace(c.Query("object_id"))
 	dateFrom := queryDate(c, "date_from")
 	dateTo := queryDate(c, "date_to")
 	page, pageSize := parsePagination(c)
@@ -223,6 +226,15 @@ func ListEfforts(c *gin.Context) {
 
 	execID := int64(queryInt(c, "execution_id"))
 	taskID := int64(queryInt(c, "task_id"))
+	var objectID int64
+	if objectIDStr != "" {
+		oid, err := strconv.ParseInt(objectIDStr, 10, 64)
+		if err != nil || oid <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid object_id"})
+			return
+		}
+		objectID = oid
+	}
 
 	if taskID > 0 {
 		t, err := firstVisibleTask(groupID, taskID)
@@ -250,6 +262,16 @@ func ListEfforts(c *gin.Context) {
 					SELECT story_id FROM local_bugs WHERE deleted = false AND execution_id = ? AND story_id > 0
 				))
 			)`, execID, execID, execID, execID)
+	}
+
+	// Drilldown filters (optional). These are applied only when task_id is not forcing object_type=task.
+	if taskID <= 0 {
+		if objectType != "" {
+			query = query.Where("LOWER(TRIM(object_type)) = LOWER(TRIM(?))", objectType)
+		}
+		if objectID > 0 {
+			query = query.Where("object_id = ?", objectID)
+		}
 	}
 
 	var total int64

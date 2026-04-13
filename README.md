@@ -29,7 +29,14 @@ docker compose up -d --build
 
 首次构建会下载基础镜像并编译，可能需要数分钟。
 
-在浏览器打开 **`http://localhost`**。若本机 **80** 端口已被占用，或不想使用特权端口，可在 `.env` 中设置 `WEB_PORT=8080` 后重新执行 `docker compose up -d`。
+在浏览器打开 **`http://localhost:2024`**。
+
+如需自定义前端端口，可在 `.env` 中设置 `WEB_PORT=xxxx` 后重新执行 `docker compose up -d`。
+
+说明：
+
+- 基础服务（PostgreSQL、Redis）默认**不发布**到宿主机端口，以避免与本机已有服务发生端口冲突；容器间通过 Compose 网络的服务名互通。
+- 后端同样默认不发布宿主机端口；前端通过 Nginx 在容器内反代 `/api` 到 `backend:8080`。
 
 使用 `.env` 中的 **`ADMIN_USER`** / **`ADMIN_PASS`** 在登录页登录。若未改用户名，默认为 `admin`。
 

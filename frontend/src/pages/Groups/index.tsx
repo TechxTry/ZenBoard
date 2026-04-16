@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Row, Col, Card, Button, Input, Modal, Form, Transfer, Table, Space,
   Typography, Popconfirm, message, Tag, Spin } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, TeamOutlined } from '@ant-design/icons'
@@ -10,9 +10,15 @@ const { Title, Text } = Typography
 interface Group { id: number; name: string; description: string }
 interface User { id: number; account: string; realname: string; role: string }
 
+type TransferItem = {
+  key: string
+  title?: string
+  description?: string
+}
+
 const cardStyle = {
-  background: 'rgba(255,255,255,0.03)',
-  border: '1px solid rgba(255,255,255,0.08)',
+  background: 'var(--zb-bg-surface)',
+  border: '1px solid var(--zb-border-subtle)',
   borderRadius: 12,
 }
 
@@ -26,14 +32,29 @@ const GroupsPage: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<Group | null>(null)
   const [loading, setLoading] = useState(false)
+  const [userSearchInput, setUserSearchInput] = useState('')
   const [userSearch, setUserSearch] = useState('')
+  const [userPage, setUserPage] = useState(1)
+  const [userPageSize, setUserPageSize] = useState(20)
+  const [userTotal, setUserTotal] = useState(0)
+  const fetchUsersSeq = useRef(0)
   const [form] = Form.useForm()
+  const transferWrapRef = useRef<HTMLDivElement | null>(null)
+  const [transferListHeight, setTransferListHeight] = useState<number>(380)
 
   useEffect(() => { fetchGroups() }, [])
-  useEffect(() => { fetchUsers() }, [userSearch])
+  useEffect(() => { fetchUsers() }, [userSearch, userPage, userPageSize])
   useEffect(() => {
     if (selectedGroup) fetchMembers(selectedGroup.id)
   }, [selectedGroup])
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setUserPage(1)
+      setUserSearch(userSearchInput.trim())
+    }, 250)
+    return () => clearTimeout(t)
+  }, [userSearchInput])
 
   const fetchGroups = async () => {
     const d = await listGroups()
@@ -41,8 +62,16 @@ const GroupsPage: React.FC = () => {
   }
 
   const fetchUsers = async () => {
-    const d = await listUsers({ q: userSearch, page: 1, page_size: 200 })
+    const seq = ++fetchUsersSeq.current
+    const d = await listUsers({ q: userSearch, page: userPage, page_size: userPageSize }) as {
+      data?: User[]
+      total?: number
+      page?: number
+      page_size?: number
+    }
+    if (seq !== fetchUsersSeq.current) return
     setUsers(d.data ?? [])
+    setUserTotal(d.total ?? 0)
   }
 
   const fetchMembers = async (groupId: number) => {
@@ -128,25 +157,88 @@ const GroupsPage: React.FC = () => {
     return [...fromUsers, ...extra]
   }, [users, targetKeys, memberRealnames])
 
+  const leftTableColumns = useMemo(() => ([
+    {
+      title: '成员',
+      dataIndex: 'title',
+      key: 'title',
+      render: (v: string) => <Text style={{ color: 'var(--zb-text-primary)' }}>{v}</Text>,
+    },
+    {
+      title: '角色',
+      dataIndex: 'description',
+      key: 'description',
+      width: 120,
+      render: (v: string) => (v ? <Tag color="blue">{v}</Tag> : null),
+    },
+  ]), [])
+
+  const rightTableColumns = useMemo(() => ([
+    {
+      title: '已选成员',
+      dataIndex: 'title',
+      key: 'title',
+      render: (v: string) => <Text style={{ color: 'var(--zb-text-primary)' }}>{v}</Text>,
+    },
+  ]), [])
+
+  useLayoutEffect(() => {
+    const root = transferWrapRef.current
+    if (!root) return
+
+    const calc = () => {
+      const lists = Array.from(root.querySelectorAll('.ant-transfer-list')) as HTMLElement[]
+      if (lists.length === 0) return
+
+      const maxScrollH = Math.max(...lists.map((el) => el.scrollHeight || 0))
+      // 预留一点空间避免边框/阴影导致的微小溢出
+      const desired = Math.ceil(maxScrollH + 2)
+
+      const minH = 380
+      const maxH = Math.max(minH, Math.floor(window.innerHeight - 260))
+      const next = Math.min(maxH, Math.max(minH, desired))
+      setTransferListHeight((prev) => (prev === next ? prev : next))
+    }
+
+    calc()
+    const ro = new ResizeObserver(() => calc())
+    ro.observe(root)
+    window.addEventListener('resize', calc)
+
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', calc)
+    }
+  }, [
+    selectedGroup?.id,
+    userSearch,
+    userPage,
+    userPageSize,
+    userTotal,
+    targetKeys.length,
+    transferDataSource.length,
+    loading,
+  ])
+
   return (
     <div>
-      <Title level={4} style={{ color: '#fff', marginBottom: 24 }}>项目组管理</Title>
+      <Title level={4} style={{ color: 'var(--zb-text-primary)', marginBottom: 24 }}>项目组管理</Title>
       <Row gutter={24}>
         {/* Group List */}
         <Col span={8}>
           <Card
-            title={<Text style={{ color: '#fff' }}>项目组列表</Text>}
+            title={<Text style={{ color: 'var(--zb-text-primary)' }}>项目组列表</Text>}
             style={cardStyle}
-            styles={{ header: { borderBottom: '1px solid rgba(255,255,255,0.06)' } }}
+            styles={{ header: { borderBottom: '1px solid var(--zb-border-subtle)' } }}
             extra={
               <Button type="primary" size="small" icon={<PlusOutlined />} onClick={openCreate}
-                style={{ background: 'linear-gradient(135deg, #667eea, #764ba2)', border: 'none' }}>
+                style={{ background: 'var(--zb-brand-gradient)', border: 'none' }}>
                 新建
               </Button>
             }
           >
             {groups.length === 0 && (
-              <Text style={{ color: 'rgba(255,255,255,0.3)', display: 'block', textAlign: 'center', padding: 24 }}>
+              <Text style={{ color: 'var(--zb-text-muted)', display: 'block', textAlign: 'center', padding: 24 }}>
                 暂无项目组，点击新建
               </Text>
             )}
@@ -161,29 +253,29 @@ const GroupsPage: React.FC = () => {
                   cursor: 'pointer',
                   transition: 'all .2s',
                   background: selectedGroup?.id === g.id
-                    ? 'linear-gradient(135deg, rgba(102,126,234,0.2), rgba(118,75,162,0.2))'
-                    : 'rgba(255,255,255,0.03)',
+                    ? 'var(--zb-primary-bg)'
+                    : 'var(--zb-bg-surface-muted)',
                   border: selectedGroup?.id === g.id
-                    ? '1px solid rgba(102,126,234,0.4)'
-                    : '1px solid rgba(255,255,255,0.05)',
+                    ? '1px solid var(--zb-primary-text)'
+                    : '1px solid var(--zb-border-subtle)',
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Space>
-                    <TeamOutlined style={{ color: '#667eea' }} />
-                    <Text style={{ color: '#fff', fontWeight: 500 }}>{g.name}</Text>
+                    <TeamOutlined style={{ color: 'var(--zb-primary-text)' }} />
+                    <Text style={{ color: 'var(--zb-text-primary)', fontWeight: 500 }}>{g.name}</Text>
                   </Space>
                   <Space size={4} onClick={(e) => e.stopPropagation()}>
                     <Button size="small" type="text" icon={<EditOutlined />}
-                      style={{ color: 'rgba(255,255,255,0.4)' }} onClick={() => openEdit(g)} />
+                      style={{ color: 'var(--zb-text-muted)' }} onClick={() => openEdit(g)} />
                     <Popconfirm title="确认删除此项目组？" onConfirm={() => handleDelete(g.id)}>
                       <Button size="small" type="text" icon={<DeleteOutlined />}
-                        style={{ color: 'rgba(255,255,255,0.4)' }} />
+                        style={{ color: 'var(--zb-text-muted)' }} />
                     </Popconfirm>
                   </Space>
                 </div>
                 {g.description && (
-                  <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 4, display: 'block' }}>
+                  <Text style={{ color: 'var(--zb-text-muted)', fontSize: 12, marginTop: 4, display: 'block' }}>
                     {g.description}
                   </Text>
                 )}
@@ -196,45 +288,102 @@ const GroupsPage: React.FC = () => {
         <Col span={16}>
           <Card
             title={
-              <Text style={{ color: '#fff' }}>
+              <Text style={{ color: 'var(--zb-text-primary)' }}>
                 {selectedGroup ? `成员分配 — ${selectedGroup.name}` : '请选择项目组'}
               </Text>
             }
             style={cardStyle}
-            styles={{ header: { borderBottom: '1px solid rgba(255,255,255,0.06)' } }}
+            styles={{ header: { borderBottom: '1px solid var(--zb-border-subtle)' } }}
             extra={
               selectedGroup && (
                 <Button type="primary" onClick={handleSaveMembers}
-                  style={{ background: 'linear-gradient(135deg, #667eea, #764ba2)', border: 'none' }}>
+                  style={{ background: 'var(--zb-brand-gradient)', border: 'none' }}>
                   保存成员
                 </Button>
               )
             }
           >
             {!selectedGroup ? (
-              <div style={{ textAlign: 'center', padding: 60, color: 'rgba(255,255,255,0.3)' }}>
+              <div style={{ textAlign: 'center', padding: 60, color: 'var(--zb-text-muted)' }}>
                 ← 从左侧选择一个项目组开始分配成员
               </div>
             ) : (
               <Spin spinning={loading}>
-                <div style={{ marginBottom: 12 }}>
-                  <Input.Search
-                    placeholder="搜索姓名/账号"
-                    onSearch={setUserSearch}
-                    onChange={(e) => !e.target.value && setUserSearch('')}
-                    style={{ width: 240 }}
-                    allowClear
-                  />
+                <div ref={transferWrapRef}>
+                  <Transfer
+                    dataSource={transferDataSource}
+                    titles={[`全量人员 (${userTotal})`, `已选成员 (${targetKeys.length})`]}
+                    targetKeys={targetKeys}
+                    onChange={(keys) => setTargetKeys(keys as string[])}
+                    render={(item) => item.title ?? ''}
+                    listStyle={{ width: '100%', height: transferListHeight, background: 'var(--zb-bg-surface-muted)', border: '1px solid var(--zb-border-subtle)' }}
+                  >
+                    {({
+                      direction,
+                      filteredItems,
+                      onItemSelect,
+                      onItemSelectAll,
+                      selectedKeys,
+                      disabled,
+                    }) => {
+                      const columns = direction === 'left' ? leftTableColumns : rightTableColumns
+
+                      const rowSelection = {
+                        getCheckboxProps: () => ({ disabled }),
+                        onChange: (selectedRowKeys: React.Key[]) => {
+                          onItemSelectAll(selectedRowKeys as string[], 'replace')
+                        },
+                        selectedRowKeys: selectedKeys,
+                      }
+
+                      const data = filteredItems as unknown as TransferItem[]
+
+                      return (
+                        <div>
+                          {direction === 'left' && (
+                            <div style={{ padding: 12, paddingBottom: 0 }}>
+                              <Input
+                                placeholder="搜索姓名/账号"
+                                value={userSearchInput}
+                                onChange={(e) => setUserSearchInput(e.target.value)}
+                                allowClear
+                              />
+                            </div>
+                          )}
+                          <Table
+                            rowSelection={rowSelection as any}
+                            columns={columns as any}
+                            dataSource={data}
+                            size="small"
+                            pagination={direction === 'left' ? {
+                              current: userPage,
+                              pageSize: userPageSize,
+                              total: userTotal,
+                              showSizeChanger: true,
+                              onChange: (page, pageSize) => {
+                                setUserPage(page)
+                                setUserPageSize(pageSize)
+                              },
+                            } : false}
+                            rowKey="key"
+                            style={{
+                              padding: 12,
+                              paddingTop: direction === 'left' ? 8 : 12,
+                              background: 'transparent',
+                            }}
+                            onRow={(record) => ({
+                              onClick: () => onItemSelect(record.key, !selectedKeys.includes(record.key)),
+                              onDoubleClick: () => {
+                                if (direction !== 'left') return
+                                setTargetKeys((prev) => (prev.includes(record.key) ? prev : [...prev, record.key]))
+                              },
+                            })}
+                          />
+                        </div>
+                      )
+                    }}
+                  </Transfer>
                 </div>
-                <Transfer
-                  dataSource={transferDataSource}
-                  titles={[`全量人员 (${users.length})`, `已选成员 (${targetKeys.length})`]}
-                  targetKeys={targetKeys}
-                  onChange={(keys) => setTargetKeys(keys as string[])}
-                  render={(item) => item.title ?? ''}
-                  showSearch
-                  listStyle={{ width: '100%', height: 380, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}
-                />
               </Spin>
             )}
           </Card>
@@ -243,19 +392,23 @@ const GroupsPage: React.FC = () => {
 
       {/* Create/Edit Modal */}
       <Modal
-        title={<Text style={{ color: '#fff' }}>{editTarget ? '编辑项目组' : '新建项目组'}</Text>}
+        title={<Text style={{ color: 'var(--zb-text-primary)' }}>{editTarget ? '编辑项目组' : '新建项目组'}</Text>}
         open={modalOpen}
         onOk={handleSaveGroup}
         onCancel={() => setModalOpen(false)}
         okText="保存"
-        styles={{ content: { background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)' }, header: { background: '#1a1a2e' }, footer: { background: '#1a1a2e' } }}
+        styles={{
+          content: { background: 'var(--zb-bg-surface)', border: '1px solid var(--zb-border-subtle)' },
+          header: { background: 'var(--zb-bg-surface)' },
+          footer: { background: 'var(--zb-bg-surface)' },
+        }}
       >
         <Form form={form} layout="vertical" style={{ marginTop: 16 }}>
-          <Form.Item name="name" label={<Text style={{ color: 'rgba(255,255,255,0.7)' }}>组名</Text>}
+          <Form.Item name="name" label={<Text style={{ color: 'var(--zb-text-secondary)' }}>组名</Text>}
             rules={[{ required: true, message: '请输入组名' }]}>
             <Input placeholder="如：后端团队" />
           </Form.Item>
-          <Form.Item name="description" label={<Text style={{ color: 'rgba(255,255,255,0.7)' }}>描述</Text>}>
+          <Form.Item name="description" label={<Text style={{ color: 'var(--zb-text-secondary)' }}>描述</Text>}>
             <Input.TextArea placeholder="可选" rows={3} />
           </Form.Item>
         </Form>

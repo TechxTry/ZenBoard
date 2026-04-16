@@ -65,7 +65,7 @@ const AppLayout: React.FC = () => {
       style={{
         height: '100vh',
         overflow: 'hidden',
-        background: 'var(--app-bg)',
+        background: 'var(--zb-bg-canvas)',
       }}
     >
       <Sider
@@ -75,23 +75,23 @@ const AppLayout: React.FC = () => {
           height: '100vh',
           overflowY: 'auto',
           position: 'relative',
-          background: 'var(--app-sider-bg)',
-          borderRight: '1px solid var(--app-sider-border)',
+          background: 'var(--zb-bg-surface)',
+          borderRight: '1px solid var(--zb-border-subtle)',
         }}
       >
         <div style={{
           padding: '24px 20px 16px',
-          borderBottom: '1px solid var(--app-sider-border)',
+          borderBottom: '1px solid var(--zb-border-subtle)',
           marginBottom: 8,
         }}>
           <Space>
             <div style={{
               width: 32, height: 32, borderRadius: 8,
-              background: 'var(--app-brand-gradient)',
+              background: 'var(--zb-brand-gradient)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 16,
             }}>🧘</div>
-            <Text strong style={{ fontSize: 15 }}>ZenBoard</Text>
+            <Text strong style={{ fontSize: 15, color: 'var(--zb-text-primary)' }}>ZenBoard</Text>
           </Space>
         </div>
 
@@ -114,10 +114,10 @@ const AppLayout: React.FC = () => {
             onClick={logout}
             style={{
               display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px',
-              borderRadius: 8, cursor: 'pointer', color: resolvedTheme === 'dark' ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.45)',
+              borderRadius: 8, cursor: 'pointer', color: 'var(--zb-text-muted)',
               transition: 'all .2s',
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = resolvedTheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)')}
+            onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--zb-bg-hover)')}
             onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
           >
             <LogoutOutlined /> 退出登录
@@ -140,12 +140,12 @@ const AppLayout: React.FC = () => {
             flexShrink: 0,
             background: 'var(--app-header-bg)',
             backdropFilter: 'blur(12px)',
-            borderBottom: '1px solid var(--app-border)',
+            borderBottom: '1px solid var(--zb-border-subtle)',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             padding: '0 24px', height: 56,
           }}
         >
-          <Text style={{ color: resolvedTheme === 'dark' ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.45)', fontSize: 13 }}>
+          <Text style={{ color: 'var(--zb-text-muted)', fontSize: 13 }}>
             当前视角：项目组
           </Text>
           <Space>
@@ -168,7 +168,7 @@ const AppLayout: React.FC = () => {
               variant="filled"
             />
             <Avatar
-              style={{ background: 'var(--app-brand-gradient)', cursor: 'default' }}
+              style={{ background: 'var(--zb-brand-gradient)', cursor: 'default' }}
               size={32}
             >A</Avatar>
           </Space>

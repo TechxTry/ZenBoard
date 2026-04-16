@@ -140,11 +140,14 @@ const STATUS_COLORS: Record<string, string> = {
 const RawDataModal: React.FC<{ data: object | null; onClose: () => void }> = ({ data, onClose }) => (
   <Modal
     open={!!data}
-    title={<Text style={{ color: '#fff' }}>原始数据 (raw_data)</Text>}
+    title={<Text style={{ color: 'var(--zb-text-primary)' }}>原始数据 (raw_data)</Text>}
     onCancel={onClose}
     footer={null}
     width={700}
-    styles={{ content: { background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12 }, header: { background: '#1a1a2e' } }}
+    styles={{
+      content: { background: 'var(--zb-bg-surface)', border: '1px solid var(--zb-border-subtle)', borderRadius: 12 },
+      header: { background: 'var(--zb-bg-surface)' },
+    }}
   >
     {data && (
       <JsonView
@@ -211,7 +214,7 @@ function useWorkbenchTab(
         <Tooltip title="查看原始数据">
           <Button
             size="small" type="text" icon={<EyeOutlined />}
-            style={{ color: 'rgba(255,255,255,0.4)' }}
+            style={{ color: 'var(--zb-text-muted)' }}
             onClick={() => setRawData(row.raw_data ?? row)}
           />
         </Tooltip>
@@ -234,7 +237,7 @@ function useWorkbenchTab(
         <Space wrap style={{ marginBottom: 16 }}>
           {filterSlot}
           <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch}
-            style={{ background: 'linear-gradient(135deg, #667eea, #764ba2)', border: 'none' }}>
+            style={{ background: 'var(--zb-brand-gradient)', border: 'none' }}>
             查询
           </Button>
         </Space>
@@ -277,7 +280,7 @@ const TaskTab: React.FC = () => {
         title: '任务名',
         dataIndex: 'name',
         render: (v: string, r: { id: number }) => (
-          <Link to={`/workbench/task/${r.id}`} style={{ color: '#fff' }}>
+          <Link to={`/workbench/task/${r.id}`} style={{ color: 'var(--zb-text-primary)' }}>
             {v}
           </Link>
         ),
@@ -286,7 +289,7 @@ const TaskTab: React.FC = () => {
         title: '类型',
         dataIndex: 'type',
         width: 90,
-        render: (v: string) => <Text style={{ color: 'rgba(255,255,255,0.85)' }}>{taskTypeLabel(v)}</Text>,
+        render: (v: string) => <Text style={{ color: 'var(--zb-text-secondary)' }}>{taskTypeLabel(v)}</Text>,
       },
       {
         title: '状态',
@@ -301,7 +304,7 @@ const TaskTab: React.FC = () => {
         dataIndex: 'assigned_to',
         width: 160,
         render: (v: string) => (
-          <Text style={{ color: 'rgba(255,255,255,0.85)' }}>{personOf(v)}</Text>
+          <Text style={{ color: 'var(--zb-text-secondary)' }}>{personOf(v)}</Text>
         ),
       },
       { title: '预估(h)', dataIndex: 'estimate', width: 80 },
@@ -349,7 +352,7 @@ const StoryTab: React.FC = () => {
   const storyColumns = useMemo(
     () => [
       { title: 'ID', dataIndex: 'id', width: 70 },
-      { title: '需求标题', dataIndex: 'title', render: (v: string) => <Text style={{ color: '#fff' }}>{v}</Text> },
+      { title: '需求标题', dataIndex: 'title', render: (v: string) => <Text style={{ color: 'var(--zb-text-primary)' }}>{v}</Text> },
       {
         title: '状态',
         dataIndex: 'status',
@@ -364,7 +367,7 @@ const StoryTab: React.FC = () => {
         title: '指派给',
         dataIndex: 'assigned_to',
         width: 160,
-        render: (v: string) => <Text style={{ color: 'rgba(255,255,255,0.85)' }}>{personOf(v)}</Text>,
+        render: (v: string) => <Text style={{ color: 'var(--zb-text-secondary)' }}>{personOf(v)}</Text>,
       },
       { title: '预估(h)', dataIndex: 'estimate', width: 80 },
       { title: '最后编辑', dataIndex: 'last_edited_date', width: 130, render: (v: string) => v ? dayjs(v).format('YYYY-MM-DD HH:mm') : '-' },
@@ -402,7 +405,7 @@ const BugTab: React.FC = () => {
   const bugColumns = useMemo(
     () => [
       { title: 'ID', dataIndex: 'id', width: 70 },
-      { title: '缺陷标题', dataIndex: 'title', render: (v: string) => <Text style={{ color: '#fff' }}>{v}</Text> },
+      { title: '缺陷标题', dataIndex: 'title', render: (v: string) => <Text style={{ color: 'var(--zb-text-primary)' }}>{v}</Text> },
       { title: '严重性', dataIndex: 'severity', width: 70, render: (v: number) => <Tag color={v <= 2 ? 'red' : v <= 3 ? 'orange' : 'default'}>P{v}</Tag> },
       {
         title: '状态',
@@ -418,20 +421,20 @@ const BugTab: React.FC = () => {
         title: '指派给',
         dataIndex: 'assigned_to',
         width: 160,
-        render: (v: string) => <Text style={{ color: 'rgba(255,255,255,0.85)' }}>{personOf(v)}</Text>,
+        render: (v: string) => <Text style={{ color: 'var(--zb-text-secondary)' }}>{personOf(v)}</Text>,
       },
       {
         title: '解决人',
         dataIndex: 'resolved_by',
         width: 160,
-        render: (v: string) => <Text style={{ color: 'rgba(255,255,255,0.85)' }}>{personOf(v)}</Text>,
+        render: (v: string) => <Text style={{ color: 'var(--zb-text-secondary)' }}>{personOf(v)}</Text>,
       },
       {
         title: '解决方案',
         dataIndex: 'resolution',
         width: 120,
         render: (v: string) => (
-          <Text style={{ color: 'rgba(255,255,255,0.85)' }}>{bugResolutionLabel(v)}</Text>
+          <Text style={{ color: 'var(--zb-text-secondary)' }}>{bugResolutionLabel(v)}</Text>
         ),
       },
       { title: '最后编辑', dataIndex: 'last_edited_date', width: 130, render: (v: string) => v ? dayjs(v).format('YYYY-MM-DD HH:mm') : '-' },
@@ -476,11 +479,11 @@ const EffortTab: React.FC = () => {
         title: '登记人',
         dataIndex: 'account',
         width: 160,
-        render: (v: string) => <Text style={{ color: 'rgba(255,255,255,0.85)' }}>{personOf(v)}</Text>,
+        render: (v: string) => <Text style={{ color: 'var(--zb-text-secondary)' }}>{personOf(v)}</Text>,
       },
       { title: '日期', dataIndex: 'work_date', width: 100, render: (v: string) => v ? dayjs(v).format('YYYY-MM-DD') : '-' },
       { title: '消耗(h)', dataIndex: 'consumed', width: 80 },
-      { title: '工作内容', dataIndex: 'work', render: (v: string) => <Text style={{ color: 'rgba(255,255,255,0.7)' }}>{v}</Text> },
+      { title: '工作内容', dataIndex: 'work', render: (v: string) => <Text style={{ color: 'var(--zb-text-secondary)' }}>{v}</Text> },
       { title: '关联类型', dataIndex: 'object_type', width: 80 },
       { title: '关联ID', dataIndex: 'object_id', width: 80 },
     ],
@@ -590,7 +593,7 @@ const EffortTab: React.FC = () => {
 
   return (
     <div>
-      <div style={{ marginBottom: 8, color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
+      <div style={{ marginBottom: 8, color: 'var(--zb-text-muted)', fontSize: 12 }}>
         展示当前项目组（成员）在禅道登记的报工明细；可按迭代、登记人、任务筛选；数据量大，时间跨度限制为 6 个月内，请务必选择时间范围。
         登记人与任务、迭代等条件为「且」关系；若选任务后无数据，可尝试清空「按登记人筛选」后再查（任务详情页不按登记人过滤）。
       </div>
@@ -604,7 +607,7 @@ const ExecutionTab: React.FC = () => {
   const executionColumns = useMemo(
     () => [
       { title: 'ID', dataIndex: 'id', width: 70 },
-      { title: '迭代名', dataIndex: 'name', render: (v: string) => <Text style={{ color: '#fff' }}>{v}</Text> },
+      { title: '迭代名', dataIndex: 'name', render: (v: string) => <Text style={{ color: 'var(--zb-text-primary)' }}>{v}</Text> },
       {
         title: '状态',
         dataIndex: 'status',
@@ -631,7 +634,7 @@ const WorkbenchPage: React.FC = () => {
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
-        <Text style={{ color: '#fff', fontSize: 18, fontWeight: 600 }}>数据工作台</Text>
+        <Text style={{ color: 'var(--zb-text-primary)', fontSize: 18, fontWeight: 600 }}>数据工作台</Text>
         {selectedGroupId ? (
           <Tag color="purple" style={{ marginLeft: 12 }}>{selectedGroupName}</Tag>
         ) : (
@@ -640,8 +643,8 @@ const WorkbenchPage: React.FC = () => {
       </div>
 
       <div style={{
-        background: 'rgba(255,255,255,0.03)',
-        border: '1px solid rgba(255,255,255,0.08)',
+        background: 'var(--zb-bg-surface)',
+        border: '1px solid var(--zb-border-subtle)',
         borderRadius: 12,
         padding: '16px 20px',
       }}>

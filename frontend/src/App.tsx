@@ -68,7 +68,8 @@ const App: React.FC = () => {
   const antdTheme = useMemo(() => {
     const algorithm = resolvedTheme === 'dark' ? theme.darkAlgorithm : theme.defaultAlgorithm
     const baseToken = {
-      colorPrimary: '#667eea',
+      // Keep UI consistent across themes; brand gradient stays in CSS vars for logo/avatar.
+      colorPrimary: '#2563EB',
       borderRadius: 8,
       fontFamily: 'Inter, -apple-system, sans-serif',
     }
@@ -78,8 +79,14 @@ const App: React.FC = () => {
         algorithm,
         token: {
           ...baseToken,
-          colorBgContainer: 'rgba(255,255,255,0.04)',
-          colorBgElevated: '#1a1a2e',
+          colorBgLayout: '#0B1220',
+          colorBgContainer: '#111827',
+          colorBgElevated: '#111827',
+          colorBorderSecondary: '#1F2937',
+          colorText: '#E5E7EB',
+          colorTextSecondary: '#CBD5E1',
+          colorTextTertiary: '#94A3B8',
+          colorTextQuaternary: '#64748B',
         },
       }
     }
@@ -88,6 +95,14 @@ const App: React.FC = () => {
       algorithm,
       token: {
         ...baseToken,
+        colorBgLayout: '#F8FAFC',
+        colorBgContainer: '#FFFFFF',
+        colorBgElevated: '#FFFFFF',
+        colorBorderSecondary: '#E2E8F0',
+        colorText: '#0F172A',
+        colorTextSecondary: '#334155',
+        colorTextTertiary: '#64748B',
+        colorTextQuaternary: '#94A3B8',
       },
     }
   }, [resolvedTheme])

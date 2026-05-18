@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import {
   Typography, Button, Table, Space, DatePicker, Tag, Tooltip, Modal, message,
 } from 'antd'
 import { ArrowLeftOutlined, EyeOutlined, SearchOutlined } from '@ant-design/icons'
 import JsonView from '@uiw/react-json-view'
 import dayjs, { Dayjs } from 'dayjs'
-import { useAppStore } from '../../store'
 import { getTask, listEfforts } from '../../api'
+import { useAuthStore } from '../../store/auth'
 import { taskTypeLabel, taskStatusLabel, useMemberPersonDisplay } from './workbenchDisplay'
 
 const { RangePicker } = DatePicker
@@ -22,11 +22,14 @@ const STATUS_COLORS: Record<string, string> = {
 const RawDataModal: React.FC<{ data: object | null; onClose: () => void }> = ({ data, onClose }) => (
   <Modal
     open={!!data}
-    title={<Text style={{ color: '#fff' }}>原始数据 (raw_data)</Text>}
+    title={<Text style={{ color: 'var(--zb-text-primary)' }}>原始数据 (raw_data)</Text>}
     onCancel={onClose}
     footer={null}
     width={700}
-    styles={{ content: { background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12 }, header: { background: '#1a1a2e' } }}
+    styles={{
+      content: { background: 'var(--zb-bg-surface)', border: '1px solid var(--zb-border-subtle)', borderRadius: 12 },
+      header: { background: 'var(--zb-bg-surface)' },
+    }}
   >
     {data && (
       <JsonView
@@ -42,8 +45,22 @@ const RawDataModal: React.FC<{ data: object | null; onClose: () => void }> = ({ 
 const TaskDetailPage: React.FC = () => {
   const { taskId: taskIdParam } = useParams<{ taskId: string }>()
   const taskId = Number(taskIdParam)
-  const { selectedGroupId } = useAppStore()
-  const personOf = useMemberPersonDisplay(selectedGroupId ?? undefined)
+  const location = useLocation()
+  const me = useAuthStore((s) => s.me)
+  const sp = new URLSearchParams(location.search)
+  const initialGroupId = (() => {
+    const raw = sp.get('group_id')
+    const n = raw ? Number(raw) : NaN
+    return Number.isFinite(n) && n > 0 ? n : undefined
+  })()
+  const backTo = sp.get('from') || '/workbench'
+  const fromMyWorkbench = backTo === '/my-workbench'
+  const backLabel = fromMyWorkbench ? '我的工作台' : '数据明细'
+  const [groupId, setGroupId] = useState<number | undefined>(initialGroupId)
+  const dataScope = String(me?.user?.data_scope ?? '').toUpperCase()
+  const defaultGroupId = me?.user?.default_group_id ?? undefined
+  const effectiveGroupId = groupId ?? (dataScope === 'GROUP' ? (defaultGroupId ?? undefined) : undefined)
+  const personOf = useMemberPersonDisplay(effectiveGroupId ?? undefined)
 
   const [task, setTask] = useState<Record<string, unknown> | null>(null)
   const [taskLoading, setTaskLoading] = useState(true)
@@ -61,7 +78,9 @@ const TaskDetailPage: React.FC = () => {
     if (!Number.isFinite(taskId) || taskId <= 0) return
     setTaskLoading(true)
     try {
-      const row = await getTask(taskId, { group_id: selectedGroupId ?? undefined })
+      const row = await getTask(taskId, fromMyWorkbench
+        ? { my_binding: 1 }
+        : { group_id: effectiveGroupId ?? undefined })
       setTask(row as Record<string, unknown>)
     } catch (e: any) {
       message.error(e.response?.data?.error ?? '加载任务失败')
@@ -69,11 +88,11 @@ const TaskDetailPage: React.FC = () => {
     } finally {
       setTaskLoading(false)
     }
-  }, [taskId, selectedGroupId])
+  }, [taskId, effectiveGroupId, fromMyWorkbench])
 
   const loadEfforts = useCallback(async () => {
     if (!Number.isFinite(taskId) || taskId <= 0) return
-    if (!task || !selectedGroupId) {
+    if (!task) {
       setEfforts([])
       setTotal(0)
       return
@@ -82,14 +101,23 @@ const TaskDetailPage: React.FC = () => {
     const to = dateRange[1].format('YYYY-MM-DD')
     setEffortLoading(true)
     try {
-      const res = await listEfforts({
-        group_id: selectedGroupId,
-        task_id: taskId,
-        date_from: from,
-        date_to: to,
-        page,
-        page_size: 20,
-      })
+      const res = await listEfforts(fromMyWorkbench
+        ? {
+            my_binding: 1,
+            task_id: taskId,
+            date_from: from,
+            date_to: to,
+            page,
+            page_size: 20,
+          }
+        : {
+            group_id: effectiveGroupId ?? undefined,
+            task_id: taskId,
+            date_from: from,
+            date_to: to,
+            page,
+            page_size: 20,
+          })
       setEfforts(res.data ?? [])
       setTotal(res.total ?? 0)
     } catch (e: any) {
@@ -97,7 +125,7 @@ const TaskDetailPage: React.FC = () => {
     } finally {
       setEffortLoading(false)
     }
-  }, [task, taskId, selectedGroupId, dateRange, page])
+  }, [task, taskId, effectiveGroupId, dateRange, page, fromMyWorkbench])
 
   useEffect(() => {
     loadTask()
@@ -117,11 +145,11 @@ const TaskDetailPage: React.FC = () => {
       title: '登记人',
       dataIndex: 'account',
       width: 160,
-      render: (v: string) => <Text style={{ color: 'rgba(255,255,255,0.85)' }}>{personOf(v)}</Text>,
+      render: (v: string) => <Text style={{ color: 'var(--zb-text-secondary)' }}>{personOf(v)}</Text>,
     },
     { title: '日期', dataIndex: 'work_date', width: 100, render: (v: string) => (v ? dayjs(v).format('YYYY-MM-DD') : '-') },
     { title: '消耗(h)', dataIndex: 'consumed', width: 80 },
-    { title: '工作内容', dataIndex: 'work', render: (v: string) => <Text style={{ color: 'rgba(255,255,255,0.7)' }}>{v}</Text> },
+    { title: '工作内容', dataIndex: 'work', render: (v: string) => <Text style={{ color: 'var(--zb-text-secondary)' }}>{v}</Text> },
     {
       title: '',
       key: 'actions',
@@ -130,7 +158,7 @@ const TaskDetailPage: React.FC = () => {
         <Tooltip title="查看原始数据">
           <Button
             size="small" type="text" icon={<EyeOutlined />}
-            style={{ color: 'rgba(255,255,255,0.4)' }}
+            style={{ color: 'var(--zb-text-muted)' }}
             onClick={() => setRawData(row.raw_data ?? row)}
           />
         </Tooltip>
@@ -143,7 +171,7 @@ const TaskDetailPage: React.FC = () => {
       <div>
         <Text type="danger">无效的任务 ID</Text>
         <div style={{ marginTop: 16 }}>
-          <Link to="/workbench">返回数据工作台</Link>
+          <Link to={backTo}>返回{backLabel}</Link>
         </div>
       </div>
     )
@@ -152,35 +180,43 @@ const TaskDetailPage: React.FC = () => {
   return (
     <div>
       <Space style={{ marginBottom: 16 }}>
-        <Link to="/workbench">
-          <Button type="text" icon={<ArrowLeftOutlined />} style={{ color: 'rgba(255,255,255,0.65)' }}>
-            数据工作台
+        <Link to={backTo}>
+          <Button type="text" icon={<ArrowLeftOutlined />} style={{ color: 'var(--zb-text-secondary)' }}>
+            {backLabel}
           </Button>
         </Link>
       </Space>
 
       <div style={{ marginBottom: 20 }}>
-        <Text style={{ color: '#fff', fontSize: 18, fontWeight: 600 }}>任务详情</Text>
+        <Text style={{ color: 'var(--zb-text-primary)', fontSize: 18, fontWeight: 600 }}>任务详情</Text>
         <Tag color="purple" style={{ marginLeft: 12 }}>#{taskId}</Tag>
+        <Space style={{ marginLeft: 12 }} wrap>
+          {effectiveGroupId
+            ? <Tag color="blue">group_id: {effectiveGroupId}</Tag>
+            : <Tag>未指定小组</Tag>}
+        </Space>
+        <Link to={`/my-workbench?task_id=${taskId}`} style={{ marginLeft: 12 }}>
+          <Button type="primary" size="small" style={{ background: 'var(--zb-brand-gradient)', border: 'none' }}>
+            报工
+          </Button>
+        </Link>
       </div>
 
-      {!selectedGroupId ? (
-        <Text type="warning">请先在顶部选择项目组</Text>
-      ) : taskLoading ? (
-        <Text style={{ color: 'rgba(255,255,255,0.45)' }}>加载中…</Text>
+      {taskLoading ? (
+        <Text style={{ color: 'var(--zb-text-muted)' }}>加载中…</Text>
       ) : !task ? (
         <Text type="danger">任务不存在或无权查看</Text>
       ) : (
         <>
           <div style={{
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,255,255,0.08)',
+            background: 'var(--zb-bg-surface)',
+            border: '1px solid var(--zb-border-subtle)',
             borderRadius: 12,
             padding: '16px 20px',
             marginBottom: 20,
           }}>
             <Space direction="vertical" size={8} style={{ width: '100%' }}>
-              <Text style={{ color: '#fff', fontSize: 16 }}>{String(task.name ?? '')}</Text>
+              <Text style={{ color: 'var(--zb-text-primary)', fontSize: 16 }}>{String(task.name ?? '')}</Text>
               <Space wrap>
                 <Tag color={STATUS_COLORS[String(task.status)] ?? 'default'}>
                   {taskStatusLabel(String(task.status ?? ''))}
@@ -194,13 +230,13 @@ const TaskDetailPage: React.FC = () => {
           </div>
 
           <div style={{
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,255,255,0.08)',
+            background: 'var(--zb-bg-surface)',
+            border: '1px solid var(--zb-border-subtle)',
             borderRadius: 12,
             padding: '16px 20px',
           }}>
-            <Text style={{ color: '#fff', fontWeight: 600, display: 'block', marginBottom: 12 }}>报工明细</Text>
-            <div style={{ marginBottom: 8, color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
+            <Text style={{ color: 'var(--zb-text-primary)', fontWeight: 600, display: 'block', marginBottom: 12 }}>报工明细</Text>
+            <div style={{ marginBottom: 8, color: 'var(--zb-text-muted)', fontSize: 12 }}>
               仅展示关联本任务的报工记录；时间跨度最多 6 个月
             </div>
             <Space wrap style={{ marginBottom: 16 }}>
@@ -222,7 +258,7 @@ const TaskDetailPage: React.FC = () => {
                 type="primary"
                 icon={<SearchOutlined />}
                 onClick={handleSearch}
-                style={{ background: 'linear-gradient(135deg, #667eea, #764ba2)', border: 'none' }}
+                style={{ background: 'var(--zb-brand-gradient)', border: 'none' }}
               >
                 查询
               </Button>

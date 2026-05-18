@@ -1,41 +1,140 @@
-import React from 'react'
-import { Layout, Menu, Select, Space, Typography, Avatar } from 'antd'
+import { Layout, Menu, Select, Space, Typography, Avatar, Button, Tooltip } from 'antd'
 import {
-  SettingOutlined, TeamOutlined, BarChartOutlined, LogoutOutlined,
+  SettingOutlined, BarChartOutlined, LogoutOutlined, UserOutlined, MenuFoldOutlined, MenuUnfoldOutlined,
 } from '@ant-design/icons'
 import { useNavigate, useLocation, Outlet } from 'react-router-dom'
 import { useAppStore } from './store'
-import { listGroups } from './api'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useAuthStore } from './store/auth'
 
 const { Header, Sider, Content } = Layout
 const { Text } = Typography
 
-interface Group { id: number; name: string }
-
 const AppLayout: React.FC = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { selectedGroupId, setGroup } = useAppStore()
-  const [groups, setGroups] = useState<Group[]>([])
+  const { themeMode, setThemeMode } = useAppStore()
+  const me = useAuthStore((s) => s.me)
+  const setMe = useAuthStore((s) => s.setMe)
+  const [collapsed, setCollapsed] = useState<boolean>(() => localStorage.getItem('zb.sidebar.collapsed') === 'true')
+  const [systemTheme, setSystemTheme] = useState<'light' | 'dark'>(() =>
+    window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
+  )
+  const [openKeys, setOpenKeys] = useState<string[]>([])
 
   useEffect(() => {
-    listGroups().then((d: { data: Group[] }) => {
-      setGroups(d.data ?? [])
-      if (!selectedGroupId && d.data?.length > 0) {
-        setGroup(d.data[0].id, d.data[0].name)
-      }
-    }).catch(() => {})
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const onChange = () => setSystemTheme(mq.matches ? 'dark' : 'light')
+    onChange()
+
+    mq.addEventListener('change', onChange)
+
+    return () => {
+      mq.removeEventListener('change', onChange)
+    }
   }, [])
 
-  const selectedKey = location.pathname.startsWith('/groups')
-    ? '/groups'
-    : location.pathname.startsWith('/workbench')
-    ? '/workbench'
-    : '/config'
+  const resolvedTheme = useMemo<'light' | 'dark'>(
+    () => (themeMode === 'system' ? systemTheme : themeMode),
+    [systemTheme, themeMode],
+  )
+
+  const selectedKey = useMemo(() => {
+    const p = location.pathname
+    const from = new URLSearchParams(location.search).get('from')
+    if (p.startsWith('/analytics/iteration')) return '/analytics/iteration'
+    if (p.startsWith('/analytics/people')) return '/analytics/people'
+    if (p.startsWith('/analytics/team-health')) return '/analytics/team-health'
+    if (p.startsWith('/my-workbench')) return '/my-workbench'
+    if (p.startsWith('/calendar-accounts')) return '/calendar-accounts'
+    if (p.startsWith('/zentao-auth')) return '/zentao-auth'
+    if (p.startsWith('/workbench/task/')) {
+      if (from === '/my-workbench') return '/my-workbench'
+      if (from === '/workbench') return '/workbench'
+    }
+    if (p.startsWith('/workbench')) return '/workbench'
+    if (p.startsWith('/config')) return '/config'
+    if (p.startsWith('/business-config')) return '/business-config'
+    if (p.startsWith('/groups')) return '/groups'
+    if (p.startsWith('/admin/system-users')) return '/admin/system-users'
+    if (p.startsWith('/admin/audit-logs')) return '/admin/audit-logs'
+    return '/my-workbench'
+  }, [location.pathname, location.search])
+
+  const selectedTopKey = useMemo(() => {
+    if (selectedKey.startsWith('/analytics')) return 'menu_analytics'
+    if (
+      selectedKey.startsWith('/my-workbench')
+      || selectedKey.startsWith('/calendar-accounts')
+      || selectedKey.startsWith('/zentao-auth')
+    ) return 'menu_personal'
+    const role = (me?.user?.role ?? '').toLowerCase()
+    const isAdmin = role === 'admin' || role === 'super_admin'
+    if (isAdmin) return 'menu_system'
+    return 'menu_personal'
+  }, [selectedKey, me?.user?.role])
+
+  useEffect(() => {
+    if (!collapsed) {
+      setOpenKeys([selectedTopKey])
+    }
+  }, [collapsed, selectedTopKey])
+
+  useEffect(() => {
+    localStorage.setItem('zb.sidebar.collapsed', String(collapsed))
+  }, [collapsed])
+
+  const menuItems = useMemo(
+    () => {
+      const role = (me?.user?.role ?? '').toLowerCase()
+      const isAdmin = role === 'admin' || role === 'super_admin'
+      const items: any[] = [
+        {
+          key: 'menu_personal',
+          icon: <UserOutlined />,
+          label: '个人工作台',
+          children: [
+            { key: '/my-workbench', label: '我的工作台' },
+            { key: '/calendar-accounts', label: '日历账户' },
+            { key: '/zentao-auth', label: '禅道授权' },
+          ],
+        },
+        {
+          key: 'menu_analytics',
+          icon: <BarChartOutlined />,
+          label: '分析看板',
+          children: [
+            { key: '/analytics/iteration', label: '迭代看板' },
+            { key: '/analytics/people', label: '员工看板' },
+            { key: '/analytics/team-health', label: '团队健康度' },
+          ],
+        },
+      ]
+
+      if (isAdmin) {
+        items.push({
+          key: 'menu_system',
+          icon: <SettingOutlined />,
+          label: '系统管理',
+          children: [
+            { key: '/config', label: '数据同步' },
+            { key: '/business-config', label: '业务配置' },
+            { key: '/groups', label: '小组管理' },
+            { key: '/workbench', label: '数据明细' },
+            { key: '/admin/system-users', label: '账号管理' },
+            { key: '/admin/audit-logs', label: '审计日志' },
+          ],
+        })
+      }
+
+      return items
+    },
+    [me?.user?.role],
+  )
 
   const logout = () => {
     localStorage.removeItem('token')
+    setMe(null)
     navigate('/login')
   }
 
@@ -44,62 +143,79 @@ const AppLayout: React.FC = () => {
       style={{
         height: '100vh',
         overflow: 'hidden',
-        background: '#0d0d1a',
+        background: 'var(--zb-bg-canvas)',
       }}
     >
       <Sider
-        theme="dark"
+        theme={resolvedTheme}
         width={220}
+        collapsible
+        collapsed={collapsed}
+        collapsedWidth={72}
+        trigger={null}
         style={{
           height: '100vh',
           overflowY: 'auto',
           position: 'relative',
-          background: 'linear-gradient(180deg, #1a1a2e 0%, #16213e 100%)',
-          borderRight: '1px solid rgba(255,255,255,0.06)',
+          background: 'var(--zb-bg-surface)',
+          borderRight: '1px solid var(--zb-border-subtle)',
         }}
       >
         <div style={{
-          padding: '24px 20px 16px',
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          padding: collapsed ? '24px 12px 16px' : '24px 20px 16px',
+          borderBottom: '1px solid var(--zb-border-subtle)',
           marginBottom: 8,
         }}>
-          <Space>
+          <Space
+            size={collapsed ? 0 : 12}
+            style={{ width: '100%', justifyContent: collapsed ? 'center' : 'flex-start' }}
+          >
             <div style={{
               width: 32, height: 32, borderRadius: 8,
-              background: 'linear-gradient(135deg, #667eea, #764ba2)',
+              background: 'var(--zb-brand-gradient)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 16,
             }}>🧘</div>
-            <Text strong style={{ color: '#fff', fontSize: 15 }}>ZenBoard</Text>
+            {!collapsed && <Text strong style={{ fontSize: 15, color: 'var(--zb-text-primary)' }}>ZenBoard</Text>}
           </Space>
         </div>
 
         <Menu
-          theme="dark"
+          theme={resolvedTheme}
           mode="inline"
           selectedKeys={[selectedKey]}
+          openKeys={openKeys}
+          onOpenChange={(keys) => {
+            if (!collapsed) {
+              setOpenKeys(keys as string[])
+            }
+          }}
           style={{ background: 'transparent', border: 'none', padding: '0 8px' }}
           onClick={({ key }) => navigate(key)}
-          items={[
-            { key: '/config', icon: <SettingOutlined />, label: '系统配置' },
-            { key: '/groups', icon: <TeamOutlined />, label: '项目组管理' },
-            { key: '/workbench', icon: <BarChartOutlined />, label: '数据工作台' },
-          ]}
+          items={menuItems}
         />
 
         <div style={{ position: 'absolute', bottom: 16, left: 0, right: 0, padding: '0 16px' }}>
-          <div
-            onClick={logout}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px',
-              borderRadius: 8, cursor: 'pointer', color: 'rgba(255,255,255,0.4)',
-              transition: 'all .2s',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.05)')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-          >
-            <LogoutOutlined /> 退出登录
-          </div>
+          <Tooltip placement="right" title={collapsed ? '退出登录' : null}>
+            <div
+              onClick={logout}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: collapsed ? 'center' : 'flex-start',
+                gap: 8,
+                padding: '10px 12px',
+                borderRadius: 8,
+                cursor: 'pointer',
+                color: 'var(--zb-text-muted)',
+                transition: 'all .2s',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--zb-bg-hover)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+            >
+              <LogoutOutlined /> {!collapsed && '退出登录'}
+            </div>
+          </Tooltip>
         </div>
       </Sider>
 
@@ -116,29 +232,38 @@ const AppLayout: React.FC = () => {
         <Header
           style={{
             flexShrink: 0,
-            background: 'rgba(13,13,26,0.8)',
+            background: 'var(--app-header-bg)',
             backdropFilter: 'blur(12px)',
-            borderBottom: '1px solid rgba(255,255,255,0.06)',
+            borderBottom: '1px solid var(--zb-border-subtle)',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             padding: '0 24px', height: 56,
           }}
         >
-          <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>
-            当前视角：项目组
-          </Text>
+          <Tooltip title={collapsed ? '展开导航' : '收起导航'}>
+            <Button
+              type="text"
+              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              onClick={() => setCollapsed((prev) => !prev)}
+              aria-label={collapsed ? '展开导航' : '收起导航'}
+            />
+          </Tooltip>
           <Space>
             <Select
-              placeholder="选择项目组"
-              value={selectedGroupId ?? undefined}
-              onChange={(val, opt: any) => setGroup(val, opt.label)}
-              options={groups.map((g) => ({ value: g.id, label: g.name }))}
-              style={{ width: 200 }}
-              variant="filled"
+              value={themeMode}
+              onChange={(val) => setThemeMode(val)}
+              style={{ width: 140 }}
+              options={[
+                { value: 'system', label: '跟随系统' },
+                { value: 'light', label: '浅色' },
+                { value: 'dark', label: '深色' },
+              ]}
             />
             <Avatar
-              style={{ background: 'linear-gradient(135deg, #667eea, #764ba2)', cursor: 'default' }}
+              style={{ background: 'var(--zb-brand-gradient)', cursor: 'default' }}
               size={32}
-            >A</Avatar>
+            >
+              {(me?.user?.display_name || me?.user?.username || 'U').slice(0, 1).toUpperCase()}
+            </Avatar>
           </Space>
         </Header>
 

@@ -1,6 +1,33 @@
-# ETL 表映射配置
-# 每条记录描述一张 Zentao MySQL 源表 → 本地 PG 目标表 的同步参数
-# 修改此文件后重启服务即可生效，无需重新编译
+# ETL 表映射配置（Zentao MySQL → ZenBoard PostgreSQL）
+# ------------------------------------------------------------
+# 目标：
+# - 用“配置”适配不同禅道版本/企业版定制差异（表名、字段、type 值等）
+# - 修改此文件后【重启后端服务】即可生效，无需重新编译
+#
+# 每条 table 记录包含：
+# - name:   本地 PG 目标表名（同时作为 sync_watermarks.table_name 的 key）
+# - source: 禅道 MySQL 源表名（不同版本/定制可能不同）
+# - enabled: 是否启用该表同步（不需要的表可直接关闭）
+# - watermark: 增量同步策略
+#   - type: none | time | id
+#     - none: 全量覆盖（适合小表/维表/结构表；每次同步都拉全表 upsert）
+#     - time: 按时间字段增量（常用 lastEditedDate）
+#     - id:   按 id 递增拉新（适合只增不改或改动难以追踪的表；某些表会额外做窗口回刷）
+#   - field: 当 type=time 或 id 时使用的字段名（与禅道 MySQL 列名一致）
+# - extra_filter: 追加 WHERE 条件（强烈建议用于：
+#   - 只同步某些 type（例如 zt_project 里同时存了 项目集/项目/迭代/看板）
+#   - 过滤掉历史/无关数据，降低同步量）
+#
+# 禅道企业版常见差异提示（你们实例如不一致，只改 source/extra_filter 即可）：
+# - 迭代/执行 通常在 zt_project 表中，type 可能是 sprint/stage/kanban（也可能有 iteration 等定制值）
+# - 项目 也可能在 zt_project 中，type 常见 project（也可能有 waterfall/agile 等）
+# - 项目集/项目集下的“计划/组合”常见 type=program/portfolio（不同组织结构可能不一样）
+# - 产品线表常见为 zt_line；如你们没有产品线概念，可直接禁用 local_product_lines
+# - 部分环境软删字段 deleted 不是 '0'/'1' 或字段名不同：可通过 extra_filter 调整或直接不依赖 deleted 过滤
+#
+# 小技巧：
+# - 如果你不确定某个表/字段是否存在：先把 enabled=false，跑起来后逐步打开并观察 /api/sync/status
+# - 结构类（program/project/product/line）建议 watermark.type=none：避免“增量漏掉改名/调整层级”
 
 tables:
   - name: local_users         # 对应 PG 目标表名(同时作为 watermark key)
@@ -43,10 +70,70 @@ tables:
       field: id
     extra_filter: ""
 
+  # ---- Zentao structure / dimensions ----
+  # 这些表用于“项目集/项目/迭代/产品线/产品”的结构化展示与筛选。
+  # 若你们禅道 type 值与默认不一致，优先改 extra_filter；如果表名不同，再改 source。
+
+  - name: local_programs
+    source: zt_project
+    enabled: true
+    watermark:
+      type: none
+      field: ""
+    # 企业版常见：项目集=program；也有环境用 portfolio。
+    # 若你们用“项目集 + 项目”的组织方式，但 type 不同（例如 programSet / train 等），在这里补上即可：
+    #   extra_filter: "type IN ('program','portfolio','your_type')"
+    extra_filter: "type IN ('program','portfolio')"
+
+  - name: local_projects
+    source: zt_project
+    enabled: true
+    watermark:
+      type: none
+      field: ""
+    # 项目常见 type=project；如果你们的项目还包含其它 type（如 agile/waterfall 定制），可扩展：
+    #   extra_filter: "type IN ('project','agile','waterfall')"
+    extra_filter: "type IN ('project')"
+
+  - name: local_product_lines
+    source: zt_line
+    enabled: true
+    watermark:
+      type: none
+      field: ""
+    # 如果你们没有产品线，建议直接禁用，避免同步报错：
+    #   enabled: false
+    extra_filter: ""
+
+  - name: local_products
+    source: zt_product
+    enabled: true
+    watermark:
+      type: none
+      field: ""
+    extra_filter: ""
+
   - name: local_executions
     source: zt_project        # 禅道中迭代与项目同存于 zt_project 表
     enabled: true
     watermark:
+      type: time                # 按 lastEditedDate 增量，便于回填 product 等字段变更
+      field: lastEditedDate
+    # 迭代/执行常见 type：sprint/stage/kanban；如果你们是其它值（例如 iteration），在这里补上即可。
+    extra_filter: "type IN ('sprint','stage','kanban')"
+
+  - name: local_actions
+    source: zt_action
+    enabled: true
+    watermark:
       type: id
       field: id
-    extra_filter: "type IN ('sprint','stage','kanban')"
+    extra_filter: ""
+
+  - name: local_histories
+    source: zt_history
+    enabled: true
+    watermark:
+      type: id
+      field: id
+    extra_filter: ""

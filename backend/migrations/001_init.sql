@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS local_users (
 );
 CREATE INDEX IF NOT EXISTS idx_local_users_deleted ON local_users(deleted);
 
--- 自定义项目组 (本地原生)
+-- 自定义小组 (本地原生)
 CREATE TABLE IF NOT EXISTS project_groups (
   id          SERIAL PRIMARY KEY,
   name        VARCHAR(120) UNIQUE NOT NULL,

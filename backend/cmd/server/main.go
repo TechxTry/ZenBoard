@@ -7,6 +7,7 @@ import (
 	"zenboard/internal/config"
 	"zenboard/internal/db"
 	"zenboard/internal/handlers"
+	"zenboard/internal/redisclient"
 	"zenboard/internal/scheduler"
 
 	"github.com/gin-contrib/cors"
@@ -22,11 +23,27 @@ func main() {
 
 	// 2. Connect PostgreSQL
 	db.InitPG()
+	if err := db.RunPendingMigrations(); err != nil {
+		log.Fatalf("[main] migrations: %v", err)
+	}
+	if err := db.EnsureBootstrapAdmin(); err != nil {
+		log.Fatalf("[main] bootstrap admin: %v", err)
+	}
 	if err := db.EnsureAppSettings(); err != nil {
 		log.Fatalf("[main] app_settings: %v", err)
 	}
 	config.Global.SyncIntervalMinutes = db.GetSyncIntervalMinutes()
+	config.Global.ZentaoBaseURL = db.GetZentaoBaseURL()
+	config.Global.ZentaoLoginURL = db.GetZentaoLoginURL()
 	log.Printf("[main] sync interval: %d min (env default + app_settings)", config.Global.SyncIntervalMinutes)
+	log.Printf("[main] zentao base url: %s (env default + app_settings)", config.Global.ZentaoBaseURL)
+	log.Printf("[main] zentao login url: %s (env default + app_settings)", config.Global.ZentaoLoginURL)
+
+	// 2b. Init Redis client (used by session auth & future async jobs)
+	redisclient.Init()
+	if err := redisclient.Ping(context.Background()); err != nil {
+		log.Printf("[main] redis ping failed (continuing): %v", err)
+	}
 
 	// 3. Connect Zentao MySQL (optional at startup — user configures via UI)
 	if config.Global.ZentaoHost != "" {
@@ -37,6 +54,7 @@ func main() {
 
 	// 4. Periodic ETL (interval persisted in PG, configurable via UI / SYNC_INTERVAL_MINUTES)
 	scheduler.StartPeriodicETL(context.Background())
+	scheduler.StartPeriodicZentaoAuthRefresh(context.Background())
 
 	// 5. Build Gin router
 	r := gin.Default()
@@ -60,13 +78,37 @@ func main() {
 	// Protected routes
 	api := r.Group("/api", handlers.JWTMiddleware())
 	{
+		api.GET("/me", handlers.Me)
+		api.GET("/me/calendar-feeds", handlers.ListMyCalendarFeeds)
+		api.POST("/me/calendar-feeds", handlers.CreateMyCalendarFeed)
+		api.DELETE("/me/calendar-feeds/:id", handlers.DeleteMyCalendarFeed)
+		api.GET("/me/calendar-aggregate", handlers.GetMyCalendarAggregate)
+		api.GET("/me/calendar-accounts", handlers.ListMyCalendarAccounts)
+		api.POST("/me/calendar-accounts", handlers.CreateMyCalendarAccount)
+		api.DELETE("/me/calendar-accounts/:id", handlers.DeleteMyCalendarAccount)
+
+		// Admin
+		api.GET("/admin/system-users", handlers.AdminListSystemUsers)
+		api.POST("/admin/system-users", handlers.AdminCreateSystemUser)
+		api.POST("/admin/system-users/batch", handlers.AdminBatchCreateSystemUsers)
+		api.PATCH("/admin/system-users/:id", handlers.AdminUpdateSystemUser)
+		api.POST("/admin/system-users/:id/reset-password", handlers.AdminResetSystemUserPassword)
+		api.GET("/admin/system-users/:id/zentao-binding", handlers.AdminGetZentaoBinding)
+		api.PUT("/admin/system-users/:id/zentao-binding", handlers.AdminSetZentaoBinding)
+		api.DELETE("/admin/system-users/:id/zentao-binding", handlers.AdminDeleteZentaoBinding)
+		api.GET("/admin/audit-logs", handlers.AdminListAuditLogs)
+
 		// Config
 		api.GET("/config/datasource", handlers.GetDatasource)
 		api.PUT("/config/datasource", handlers.PutDatasource)
 		api.POST("/config/datasource/test", handlers.TestDatasource)
+		api.GET("/config/zentao-api", handlers.GetZentaoAPIConfig)
+		api.PUT("/config/zentao-api", handlers.PutZentaoAPIConfig)
 		api.GET("/config/sync-settings", handlers.GetSyncSettings)
 		api.PUT("/config/sync-settings", handlers.PutSyncSettings)
 		api.GET("/config/local-stats", handlers.GetLocalStats)
+		api.GET("/config/business", handlers.GetBusinessConfig)
+		api.PUT("/config/business", handlers.PutBusinessConfig)
 
 		// Users
 		api.GET("/users", handlers.ListUsers)
@@ -79,17 +121,46 @@ func main() {
 		api.GET("/groups/:id/members", handlers.GetGroupMembers)
 		api.PUT("/groups/:id/members", handlers.UpdateGroupMembers)
 
-		// Workbench (tasks/:id must be registered before /workbench/tasks)
+		// Analytics
+		api.GET("/analytics/effort-heatmap", handlers.EffortHeatmap)
+		api.GET("/analytics/user-load", handlers.UserLoad)
+		api.GET("/analytics/workload-distribution", handlers.WorkloadDistribution)
+		api.GET("/analytics/iteration/overview", handlers.IterationOverview)
+		api.GET("/analytics/iteration/burndown", handlers.IterationBurndown)
+		api.GET("/analytics/iteration/cfd", handlers.IterationCFD)
+		api.GET("/analytics/iteration/cycle-time", handlers.IterationCycleTime)
+		api.GET("/analytics/iteration/scope-change", handlers.IterationScopeChange)
+		api.GET("/analytics/people/overview", handlers.PeopleOverview)
+		api.GET("/analytics/people/wip-trend", handlers.PeopleWIPTrend)
+		api.GET("/analytics/people/throughput", handlers.PeopleThroughput)
+		api.GET("/analytics/people/bottleneck", handlers.PeopleBottleneck)
+
+		// Workbench (tasks/:id must be registered before /workbench/tasks; projects/:id before /workbench/projects)
 		api.GET("/workbench/tasks/:id", handlers.GetTask)
 		api.GET("/workbench/tasks", handlers.ListTasks)
 		api.GET("/workbench/stories", handlers.ListStories)
 		api.GET("/workbench/bugs", handlers.ListBugs)
 		api.GET("/workbench/efforts", handlers.ListEfforts)
 		api.GET("/workbench/executions", handlers.ListExecutions)
+		api.GET("/workbench/projects/:id", handlers.GetWorkbenchProject)
+		api.GET("/workbench/projects", handlers.ListWorkbenchProjects)
+		api.GET("/workbench/structure", handlers.GetWorkbenchStructure)
 
 		// Sync
 		api.POST("/sync/trigger", handlers.TriggerSync)
 		api.GET("/sync/status", handlers.GetSyncStatus)
+
+		// Zentao auth (session)
+		api.GET("/zentao/auth/status", handlers.GetZentaoAuthStatus)
+		api.POST("/zentao/auth/test", handlers.TestZentaoAuth)
+		api.POST("/zentao/auth/test-saved", handlers.TestZentaoAuthSaved)
+		api.POST("/zentao/auth/bind", handlers.BindZentaoAuth)
+		api.POST("/zentao/auth/bind-saved", handlers.BindZentaoAuthSaved)
+		api.POST("/zentao/auth/probe", handlers.ProbeZentaoAuth)
+		api.DELETE("/zentao/auth/clear", handlers.ClearZentaoAuth)
+
+		// Zentao write-back
+		api.POST("/zentao/efforts", handlers.CreateZentaoEffort)
 	}
 
 	log.Printf("[main] ZenBoard backend listening on :%s", config.Global.Port)

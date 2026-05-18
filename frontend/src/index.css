@@ -4,61 +4,141 @@
   padding: 0;
 }
 
+:root {
+  /* ===== ZenBoard theme tokens (Light) ===== */
+  --zb-bg-canvas: #F8FAFC;
+  --zb-bg-surface: #FFFFFF;
+  --zb-bg-surface-muted: #F1F5F9;
+  --zb-bg-hover: #F1F5FF;
+
+  --zb-border-subtle: #E2E8F0;
+  --zb-border-strong: #CBD5E1;
+
+  --zb-text-primary: #0F172A;
+  --zb-text-secondary: #334155;
+  --zb-text-muted: #64748B;
+  --zb-text-disabled: #94A3B8;
+  --zb-text-inverse: #FFFFFF;
+
+  --zb-primary-solid: #2563EB;
+  --zb-primary-text: #1D4ED8;
+  --zb-primary-bg: #DBEAFE;
+
+  --zb-success-solid: #16A34A;
+  --zb-warning-solid: #D97706;
+  --zb-danger-solid: #DC2626;
+  --zb-info-solid: #0891B2;
+
+  /* Brand gradient kept (logo/avatar), not used for text contrast decisions */
+  --zb-brand-gradient: linear-gradient(135deg, #667eea, #764ba2);
+
+  /* Backward-compatible aliases used by existing layout */
+  --app-bg: var(--zb-bg-canvas);
+  --app-text: var(--zb-text-primary);
+  --app-border: var(--zb-border-subtle);
+  --app-header-bg: color-mix(in srgb, var(--zb-bg-surface) 78%, transparent);
+  --app-sider-bg: var(--zb-bg-surface);
+  --app-sider-border: var(--zb-border-subtle);
+  --app-brand-gradient: var(--zb-brand-gradient);
+}
+
+html[data-theme="dark"] {
+  /* ===== ZenBoard theme tokens (Dark) ===== */
+  --zb-bg-canvas: #0B1220;
+  --zb-bg-surface: #111827;
+  --zb-bg-surface-muted: #0F172A;
+  --zb-bg-hover: #0B1B33;
+
+  --zb-border-subtle: #1F2937;
+  --zb-border-strong: #334155;
+
+  --zb-text-primary: #E5E7EB;
+  --zb-text-secondary: #CBD5E1;
+  --zb-text-muted: #94A3B8;
+  --zb-text-disabled: #64748B;
+  --zb-text-inverse: #0F172A;
+
+  --zb-primary-solid: #3B82F6;
+  --zb-primary-text: #60A5FA;
+  --zb-primary-bg: #0B2A55;
+
+  --zb-success-solid: #22C55E;
+  --zb-warning-solid: #F59E0B;
+  --zb-danger-solid: #EF4444;
+  --zb-info-solid: #06B6D4;
+
+  --zb-brand-gradient: linear-gradient(135deg, #667eea, #764ba2);
+
+  /* Backward-compatible aliases */
+  --app-bg: var(--zb-bg-canvas);
+  --app-text: var(--zb-text-primary);
+  --app-border: var(--zb-border-subtle);
+  --app-header-bg: color-mix(in srgb, var(--zb-bg-canvas) 80%, transparent);
+  --app-sider-bg: var(--zb-bg-surface);
+  --app-sider-border: var(--zb-border-subtle);
+  --app-brand-gradient: var(--zb-brand-gradient);
+}
+
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: #0d0d1a;
-  color: #fff;
+  background: var(--app-bg);
+  color: var(--app-text);
   -webkit-font-smoothing: antialiased;
 }
 
-/* Ant Design dark overrides */
-.ant-table {
+/* Ant Design dark overrides (scoped) */
+html[data-theme="dark"] .ant-table {
   background: transparent !important;
 }
-.ant-table-thead > tr > th {
-  background: rgba(255,255,255,0.04) !important;
-  border-bottom: 1px solid rgba(255,255,255,0.08) !important;
-  color: rgba(255,255,255,0.6) !important;
+html[data-theme="dark"] .ant-table-thead > tr > th {
+  background: var(--zb-bg-surface-muted) !important;
+  border-bottom: 1px solid var(--zb-border-subtle) !important;
+  color: var(--zb-text-secondary) !important;
   font-weight: 500;
 }
-.ant-table-tbody > tr > td {
-  border-bottom: 1px solid rgba(255,255,255,0.04) !important;
-  color: rgba(255,255,255,0.8);
+html[data-theme="dark"] .ant-table-tbody > tr > td {
+  border-bottom: 1px solid var(--zb-border-subtle) !important;
+  color: var(--zb-text-secondary);
 }
-.ant-table-tbody > tr:hover > td {
-  background: rgba(102,126,234,0.08) !important;
+html[data-theme="dark"] .ant-table-tbody > tr:hover > td {
+  background: var(--zb-bg-hover) !important;
 }
-.ant-tabs-tab {
-  color: rgba(255,255,255,0.4) !important;
+html[data-theme="dark"] .ant-tabs-tab {
+  color: var(--zb-text-muted) !important;
 }
-.ant-tabs-tab-active .ant-tabs-tab-btn {
-  color: #667eea !important;
+html[data-theme="dark"] .ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: var(--zb-primary-text) !important;
 }
-.ant-tabs-ink-bar {
-  background: linear-gradient(90deg, #667eea, #764ba2) !important;
+html[data-theme="dark"] .ant-tabs-ink-bar {
+  background: var(--zb-brand-gradient) !important;
 }
-.ant-menu-item-selected {
-  background: linear-gradient(135deg, rgba(102,126,234,0.15), rgba(118,75,162,0.15)) !important;
-  color: #667eea !important;
+html[data-theme="dark"] .ant-menu-item-selected {
+  background: color-mix(in srgb, var(--zb-primary-bg) 55%, transparent) !important;
+  color: var(--zb-primary-text) !important;
 }
-.ant-transfer-list {
+html[data-theme="dark"] .ant-transfer-list {
   border-radius: 8px !important;
 }
-.ant-input, .ant-input-affix-wrapper {
-  background: rgba(255,255,255,0.06) !important;
-  border-color: rgba(255,255,255,0.12) !important;
-  color: #fff !important;
+html[data-theme="dark"] .ant-input,
+html[data-theme="dark"] .ant-input-affix-wrapper {
+  background: var(--zb-bg-surface-muted) !important;
+  border-color: var(--zb-border-strong) !important;
+  color: var(--zb-text-primary) !important;
 }
-.ant-select-selector {
-  background: rgba(255,255,255,0.06) !important;
-  border-color: rgba(255,255,255,0.12) !important;
+html[data-theme="dark"] .ant-select-selector {
+  background: var(--zb-bg-surface-muted) !important;
+  border-color: var(--zb-border-strong) !important;
 }
-.ant-card-head-title {
-  color: rgba(255,255,255,0.9) !important;
+html[data-theme="dark"] .ant-card-head-title {
+  color: var(--zb-text-primary) !important;
 }
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
+::-webkit-scrollbar-track { background: rgba(0,0,0,0.06); }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.18); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.28); }
+
+html[data-theme="dark"] ::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
+html[data-theme="dark"] ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); }
+html[data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }

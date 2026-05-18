@@ -31,8 +31,16 @@ type Config struct {
 	ZentaoPass   string
 	ZentaoDBName string
 
+	// Zentao API (write-back)
+	ZentaoBaseURL    string
+	ZentaoLoginURL   string
+	ZentaoCredSecret string
+
 	// ETL
 	SyncIntervalMinutes int
+
+	// Zentao auth auto refresh
+	ZentaoAuthRefreshMinutes int
 }
 
 var Global Config
@@ -48,13 +56,17 @@ func Load() {
 		JWTSecret: getEnv("JWT_SECRET", "zenboard-secret-change-me"),
 		RedisAddr: getEnv("REDIS_ADDR", "localhost:6379"),
 
-		ZentaoHost:   getEnv("ZT_HOST", ""),
-		ZentaoPort:   getEnv("ZT_PORT", "3306"),
-		ZentaoUser:   getEnv("ZT_USER", ""),
-		ZentaoPass:   getEnv("ZT_PASS", ""),
-		ZentaoDBName: getEnv("ZT_DBNAME", "zentao"),
+		ZentaoHost:       getEnv("ZT_HOST", ""),
+		ZentaoPort:       getEnv("ZT_PORT", "3306"),
+		ZentaoUser:       getEnv("ZT_USER", ""),
+		ZentaoPass:       getEnv("ZT_PASS", ""),
+		ZentaoDBName:     getEnv("ZT_DBNAME", "zentao"),
+		ZentaoBaseURL:    getEnv("ZT_BASE_URL", ""),
+		ZentaoLoginURL:   getEnv("ZT_LOGIN_URL", ""),
+		ZentaoCredSecret: getEnv("ZT_CRED_SECRET", ""),
 
-		SyncIntervalMinutes: ClampSyncIntervalMinutes(getEnvInt("SYNC_INTERVAL_MINUTES", 15)),
+		SyncIntervalMinutes:      ClampSyncIntervalMinutes(getEnvInt("SYNC_INTERVAL_MINUTES", 15)),
+		ZentaoAuthRefreshMinutes: ClampZentaoAuthRefreshMinutes(getEnvIntRaw("ZT_AUTH_REFRESH_MINUTES", 30)),
 	}
 
 	log.Println("[config] loaded successfully")
@@ -64,6 +76,21 @@ func Load() {
 func ClampSyncIntervalMinutes(n int) int {
 	if n < 1 {
 		return 1
+	}
+	if n > 1440 {
+		return 1440
+	}
+	return n
+}
+
+// ClampZentaoAuthRefreshMinutes limits auto-refresh interval to [5, 1440] minutes.
+// 0 disables the background refresh loop entirely.
+func ClampZentaoAuthRefreshMinutes(n int) int {
+	if n <= 0 {
+		return 0
+	}
+	if n < 5 {
+		return 5
 	}
 	if n > 1440 {
 		return 1440
@@ -102,6 +129,11 @@ func getEnv(key, fallback string) string {
 }
 
 func getEnvInt(key string, fallback int) int {
+	n := getEnvIntRaw(key, fallback)
+	return ClampSyncIntervalMinutes(n)
+}
+
+func getEnvIntRaw(key string, fallback int) int {
 	v := os.Getenv(key)
 	if v == "" {
 		return fallback
@@ -110,7 +142,7 @@ func getEnvInt(key string, fallback int) int {
 	if err != nil {
 		return fallback
 	}
-	return ClampSyncIntervalMinutes(n)
+	return n
 }
 
 // ZentaoDSN builds the MySQL DSN from current config.

@@ -9,7 +9,8 @@ RUN go mod download
 
 # 复制源码并编译
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o /app/server ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/server ./cmd/server && \
+    CGO_ENABLED=0 GOOS=linux go build -o /app/zbcli ./cmd/zbcli
 
 # ---- Stage 2: Runtime ----
 FROM alpine:3.19
@@ -21,6 +22,7 @@ WORKDIR /app
 
 # 仅复制二进制和配置文件
 COPY --from=builder /app/server .
+COPY --from=builder /app/zbcli .
 COPY config/etl_tables.yaml ./config/etl_tables.yaml
 
 EXPOSE 8080

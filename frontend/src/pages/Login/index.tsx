@@ -3,18 +3,21 @@ import { Form, Input, Button, Card, message, Typography } from 'antd'
 import { UserOutlined, LockOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import { login } from '../../api'
+import { useAuthStore } from '../../store/auth'
 
 const { Title, Text } = Typography
 
 const LoginPage: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const fetchMe = useAuthStore((s) => s.fetchMe)
 
   const onFinish = async (values: { username: string; password: string }) => {
     setLoading(true)
     try {
       const data = await login(values.username, values.password)
       localStorage.setItem('token', data.token)
+      await fetchMe()
       message.success('登录成功')
       navigate('/')
     } catch {

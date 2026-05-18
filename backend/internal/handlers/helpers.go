@@ -14,7 +14,7 @@ func parsePagination(c *gin.Context) (page, pageSize int) {
 	if page < 1 {
 		page = 1
 	}
-	if pageSize < 1 || pageSize > 200 {
+	if pageSize < 1 || pageSize > 5000 {
 		pageSize = 20
 	}
 	return
@@ -24,6 +24,17 @@ func parsePagination(c *gin.Context) (page, pageSize int) {
 func queryInt(c *gin.Context, key string) int {
 	v, _ := strconv.Atoi(c.Query(key))
 	return v
+}
+
+// queryMyBinding is true when the client requests data strictly scoped to the
+// current user's zentao_bindings account (e.g. 「我的工作台」).
+func queryMyBinding(c *gin.Context) bool {
+	switch c.Query("my_binding") {
+	case "1", "true", "yes":
+		return true
+	default:
+		return false
+	}
 }
 
 // queryDate parses a date query param (format: 2006-01-02).

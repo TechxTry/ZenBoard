@@ -1,11 +1,13 @@
-# 全栈编排：PostgreSQL + Redis + 本地构建 backend / frontend（clone 后默认可用）
+# 全栈编排：PostgreSQL + Redis + backend / frontend
 #
-# 使用前：
-#   1. 仓库根目录：cp .env.example .env，至少修改 JWT_SECRET、ADMIN_PASS
-#   2. docker compose up -d --build
+# 默认使用 Docker Hub 预构建镜像（无需本地编译前后端）：
+#   docker compose pull && docker compose up -d
 #
-# 首次构建需下载依赖，约数分钟。访问：http://localhost:${WEB_PORT:-2024}
-# （如需自定义端口，可设 WEB_PORT=xxxx）
+# 从本仓库源码构建镜像（开发 / 验证 Dockerfile）：
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+#
+# 使用前：cp .env.example .env，至少修改 JWT_SECRET、ADMIN_PASS
+# 访问：http://localhost:${WEB_PORT:-2024}
 
 services:
   postgres:
@@ -42,10 +44,7 @@ services:
       retries: 10
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    image: zenboard-backend:local
+    image: ${DOCKERHUB_NAMESPACE:-techxtry}/zenboard-backend:${ZENBOARD_IMAGE_TAG:-latest}
     container_name: zenboard_backend
     restart: unless-stopped
     depends_on:
@@ -72,10 +71,7 @@ services:
       - "8080"
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    image: zenboard-frontend:local
+    image: ${DOCKERHUB_NAMESPACE:-techxtry}/zenboard-frontend:${ZENBOARD_IMAGE_TAG:-latest}
     container_name: zenboard_frontend
     restart: unless-stopped
     depends_on:

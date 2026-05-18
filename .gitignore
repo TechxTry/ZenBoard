@@ -17,6 +17,7 @@ Icon
 # 编辑器与 IDE
 .idea/
 .vscode/
+.cursor/
 *.swp
 *.swo
 *~

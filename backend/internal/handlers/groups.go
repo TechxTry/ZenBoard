@@ -27,6 +27,9 @@ func ListGroups(c *gin.Context) {
 
 // CreateGroup POST /api/groups
 func CreateGroup(c *gin.Context) {
+	if _, ok := RequireAdmin(c); !ok {
+		return
+	}
 	var req createGroupReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -42,6 +45,9 @@ func CreateGroup(c *gin.Context) {
 
 // UpdateGroup PUT /api/groups/:id
 func UpdateGroup(c *gin.Context) {
+	if _, ok := RequireAdmin(c); !ok {
+		return
+	}
 	id, _ := strconv.Atoi(c.Param("id"))
 	var req createGroupReq
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -55,6 +61,9 @@ func UpdateGroup(c *gin.Context) {
 
 // DeleteGroup DELETE /api/groups/:id
 func DeleteGroup(c *gin.Context) {
+	if _, ok := RequireAdmin(c); !ok {
+		return
+	}
 	id, _ := strconv.Atoi(c.Param("id"))
 	db.PG.Where("id = ?", id).Delete(&models.ProjectGroup{})
 	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
@@ -90,6 +99,9 @@ func GetGroupMembers(c *gin.Context) {
 // UpdateGroupMembers PUT /api/groups/:id/members
 // Replaces all members atomically.
 func UpdateGroupMembers(c *gin.Context) {
+	if _, ok := RequireAdmin(c); !ok {
+		return
+	}
 	id, _ := strconv.Atoi(c.Param("id"))
 	var req updateMembersReq
 	if err := c.ShouldBindJSON(&req); err != nil {

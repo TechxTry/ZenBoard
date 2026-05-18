@@ -18,6 +18,9 @@ type datasourceConfig struct {
 
 // GetDatasource GET /api/config/datasource
 func GetDatasource(c *gin.Context) {
+	if _, ok := RequireAdmin(c); !ok {
+		return
+	}
 	cfg := config.Global
 	c.JSON(http.StatusOK, gin.H{
 		"host":    cfg.ZentaoHost,
@@ -30,6 +33,9 @@ func GetDatasource(c *gin.Context) {
 
 // PutDatasource PUT /api/config/datasource
 func PutDatasource(c *gin.Context) {
+	if _, ok := RequireAdmin(c); !ok {
+		return
+	}
 	var req datasourceConfig
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -52,6 +58,9 @@ func PutDatasource(c *gin.Context) {
 
 // TestDatasource POST /api/config/datasource/test
 func TestDatasource(c *gin.Context) {
+	if _, ok := RequireAdmin(c); !ok {
+		return
+	}
 	var req datasourceConfig
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
